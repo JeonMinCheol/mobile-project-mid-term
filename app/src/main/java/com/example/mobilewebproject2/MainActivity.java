@@ -39,6 +39,8 @@ import org.json.JSONArray;
 import org.json.JSONObject;
 
 import java.io.BufferedReader;
+import java.io.File;
+import java.io.FileOutputStream;
 import java.io.IOException;
 import java.io.InputStreamReader;
 import java.net.MalformedURLException;
@@ -52,6 +54,9 @@ import java.util.concurrent.ExecutionException;
 
 import javax.net.ssl.HttpsURLConnection;
 
+import okhttp3.MediaType;
+import okhttp3.MultipartBody;
+import okhttp3.RequestBody;
 import retrofit2.Call;
 import retrofit2.Callback;
 import retrofit2.Response;
@@ -61,9 +66,9 @@ import retrofit2.converter.gson.GsonConverterFactory;
 public class MainActivity extends AppCompatActivity {
     private final int CAMERA_REQUEST_CODE = 100;
     private final int GPS_REQUEST_CODE = 101;
-    private final String SEARCH_TYPE;
-    private final String epsg;
-    private final String GEO_API_KEY;
+//    private final String SEARCH_TYPE;
+//    private final String epsg;
+//    private final String GEO_API_KEY;
     private String searchPoint;
     private double latitude;
     private double longitude;
@@ -72,78 +77,7 @@ public class MainActivity extends AppCompatActivity {
     private TextView textView;
     private ProcessCameraProvider processCameraProvider;
     private ImageCapture imageCapture;
-    private ImageView imageView;
-
-
-    public MainActivity() {
-        this.GEO_API_KEY = "${API_KEY}";
-        this.SEARCH_TYPE = "road";
-        this.epsg = "epsg:4326";
-    }
-
-    public Image takePicture() {
-        final Image[] mediaImage = new Image[1];
-
-        imageCapture.takePicture(ContextCompat.getMainExecutor(this), new ImageCapture.OnImageCapturedCallback() {
-            @Override
-            @ExperimentalGetImage
-            public void onCaptureSuccess(@NonNull ImageProxy image) {
-                mediaImage[0] = image.getImage();
-
-                if(mediaImage[0] != null) {
-                    ByteBuffer buffer = mediaImage[0].getPlanes()[0].getBuffer();
-//                    byte[] bytes = new byte[buffer.capacity()];
-//                    buffer.get(bytes);
-//                    Bitmap bitmap = BitmapFactory.decodeByteArray(bytes, 0, bytes.length, null);
-//                    imageView.setImageBitmap(bitmap);
-                    image.close();
-
-                }
-
-                super.onCaptureSuccess(image);
-            }
-        });
-        return mediaImage[0];
-    }
-
-    @Override
-    protected void onPause() {
-        processCameraProvider.unbindAll();
-        super.onPause();
-    }
-
-    private void bindPreview() {
-        // 후면 카메라 사용
-        CameraSelector cameraSelector = new CameraSelector
-                .Builder()
-                .requireLensFacing(CameraSelector.LENS_FACING_BACK)
-                .build();
-
-
-        Preview preview = new Preview
-                .Builder()
-                .setTargetAspectRatio(AspectRatio.RATIO_4_3)
-                        .build();
-
-        preview.setSurfaceProvider(previewView.getSurfaceProvider());
-
-        processCameraProvider.bindToLifecycle(this, cameraSelector,preview);
-    }
-
-
-    private void bindImageCapture() {
-        // 후면 카메라 사용
-        CameraSelector cameraSelector = new CameraSelector
-                .Builder()
-                .requireLensFacing(CameraSelector.LENS_FACING_BACK)
-                .build();
-
-        imageCapture = new ImageCapture
-                .Builder()
-                .build();
-
-        processCameraProvider.bindToLifecycle(this, cameraSelector, imageCapture);
-    }
+    private Post post;
 
     @Override
     protected void onCreate(Bundle savedInstanceState) {
@@ -153,7 +87,13 @@ public class MainActivity extends AppCompatActivity {
         button = findViewById(R.id.toggleButton);
         previewView = findViewById(R.id.previewView);
         textView = findViewById(R.id.textView);
-        imageView = findViewById(R.id.imageView);
+
+        Retrofit retrofit = new Retrofit.Builder()
+                .baseUrl("http://182.224.243.135:5000")
+                .addConverterFactory(GsonConverterFactory.create())
+                .build();
+
+        post = retrofit.create(Post.class);
 
         try {
             processCameraProvider = ProcessCameraProvider.getInstance(this).get();
@@ -222,6 +162,19 @@ public class MainActivity extends AppCompatActivity {
 
             @Override
             public void onCheckedChanged(CompoundButton buttonView, boolean isChecked) {
+                Timer timer = new Timer();
+                TimerTask timerTask = new TimerTask() {
+                    @Override
+                    public void run() {
+                        //0.5초마다 실행
+                        takePicture();
+
+                        // 사진 + 위치 전송 메서드 추가
+                        if(button.isChecked())
+                            createPost();
+                    }
+                };
+
                 if(button.isChecked()){
                     bindPreview();
                     bindImageCapture();
@@ -236,27 +189,95 @@ public class MainActivity extends AppCompatActivity {
                     }
 
                     // 일정 주기마다 사진 촬영
-                    Timer timer = new Timer();
 
-                    TimerTask timerTask = new TimerTask() {
-                        @Override
-                        public void run() {
-                            //0.5초마다 실행
-                            Image image = takePicture();
 
-                            // 사진 + 위치 전송 메서드 추가
-
-                        }
-                    };
-                    timer.schedule(timerTask,0,500);
+                    timer.schedule(timerTask,1000,3000);
                 }
                 else{
+                    timerTask.cancel();
+                    timer.cancel();
                     textView.setText("중지 중..");
 
                     onPause();
                 }
             }
         });
+    }
+
+    public Image takePicture() {
+        imageCapture.takePicture(ContextCompat.getMainExecutor(this), new ImageCapture.OnImageCapturedCallback() {
+            @Override
+            @ExperimentalGetImage
+            public void onCaptureSuccess(@NonNull ImageProxy image) {
+                Image mediaImage = image.getImage();
+
+                if(mediaImage != null) {
+                    ByteBuffer buffer = mediaImage.getPlanes()[0].getBuffer();
+                    byte[] bytes = new byte[buffer.capacity()];
+                    buffer.get(bytes);
+                    Bitmap bitmap = BitmapFactory.decodeByteArray(bytes, 0, bytes.length, null);
+
+                    String filePath = getExternalFilesDir(null).getAbsolutePath() + File.separator + "my_image.jpg";
+                    File file = new File(filePath);
+
+                    try {
+                        FileOutputStream fos = new FileOutputStream(file);
+
+                        // Bitmap을 JPEG 형식으로 파일에 저장
+                        bitmap.compress(Bitmap.CompressFormat.JPEG, 100, fos);
+
+                        fos.flush();
+                        fos.close();
+
+                        // 파일 저장 성공
+                    } catch (IOException e) {
+                        e.printStackTrace();
+                        // 파일 저장 실패
+                    }
+                    image.close();
+                }
+
+                super.onCaptureSuccess(image);
+            }
+        });
+        return null;
+    }
+
+    @Override
+    protected void onPause() {
+        processCameraProvider.unbindAll();
+        super.onPause();
+    }
+
+    private void bindPreview() {
+        // 후면 카메라 사용
+        CameraSelector cameraSelector = new CameraSelector
+                .Builder()
+                .requireLensFacing(CameraSelector.LENS_FACING_BACK)
+                .build();
+
+        Preview preview = new Preview
+                .Builder()
+                .setTargetAspectRatio(AspectRatio.RATIO_4_3)
+                        .build();
+
+        preview.setSurfaceProvider(previewView.getSurfaceProvider());
+
+        processCameraProvider.bindToLifecycle(this, cameraSelector,preview);
+    }
+
+    private void bindImageCapture() {
+        // 후면 카메라 사용
+        CameraSelector cameraSelector = new CameraSelector
+                .Builder()
+                .requireLensFacing(CameraSelector.LENS_FACING_BACK)
+                .build();
+
+        imageCapture = new ImageCapture
+                .Builder()
+                .build();
+
+        processCameraProvider.bindToLifecycle(this, cameraSelector, imageCapture);
     }
 
     @Override
@@ -273,5 +294,37 @@ public class MainActivity extends AppCompatActivity {
                 }
             }
         }
+    }
+
+    private void createPost() {
+        RequestBody title = RequestBody.create(MediaType.parse("text/plain"), searchPoint);
+        RequestBody text = RequestBody.create(MediaType.parse("text/plain"), "위반 차량 발견");
+
+        String filePath = getExternalFilesDir(null).getAbsolutePath() + File.separator + "my_image.jpg";
+
+        File imageFile = new File(filePath);
+        RequestBody requestFile = RequestBody.create(MediaType.parse("multipart/form-data"), imageFile);
+        MultipartBody.Part image = MultipartBody.Part.createFormData("image", imageFile.getName(), requestFile);
+
+        Call call = post.sendData(title, text, image);
+
+        call.enqueue(new Callback<ReceiveDTO>() {
+            @Override
+            public void onResponse(Call<ReceiveDTO> call, Response<ReceiveDTO> response) {
+                if(!response.isSuccessful()) {
+                    Log.d("response error", String.valueOf(response.code()));
+                }
+                else {
+                    ReceiveDTO receiveDTO = response.body();
+
+                    Log.d("response body", receiveDTO.result);
+                }
+            }
+
+            @Override
+            public void onFailure(Call<ReceiveDTO> call, Throwable t) {
+                Log.d("onFailure", String.valueOf(t.getMessage()));
+            }
+        });
     }
 }
