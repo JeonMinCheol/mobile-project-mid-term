@@ -56,6 +56,8 @@ import javax.net.ssl.HttpsURLConnection;
 
 import okhttp3.MediaType;
 import okhttp3.MultipartBody;
+import okhttp3.OkHttpClient;
+import okhttp3.Request;
 import okhttp3.RequestBody;
 import retrofit2.Call;
 import retrofit2.Callback;
@@ -66,10 +68,10 @@ import retrofit2.converter.gson.GsonConverterFactory;
 public class MainActivity extends AppCompatActivity {
     private final int CAMERA_REQUEST_CODE = 100;
     private final int GPS_REQUEST_CODE = 101;
-//    private final String SEARCH_TYPE;
-//    private final String epsg;
-//    private final String GEO_API_KEY;
+    private final String epsg="epsg:4326";
+    private final String GEO_API_KEY = "434197BE-5034-31E3-B9BA-D4C187C1B393";
     private String searchPoint;
+    private String currentLocation;
     private double latitude;
     private double longitude;
     private ToggleButton button;
@@ -135,8 +137,8 @@ public class MainActivity extends AppCompatActivity {
                 {
                     latitude = location.getLatitude();   // 위도
                     longitude = location.getLongitude(); // 경도
-                    searchPoint = "위도 : " + latitude + "\n경도 : " + longitude;
-                    textView.setText(searchPoint);
+                    searchPoint = longitude+","+latitude;
+                    getAddress();
                 }
             }
         };
@@ -156,12 +158,13 @@ public class MainActivity extends AppCompatActivity {
                 TimerTask timerTask = new TimerTask() {
                     @Override
                     public void run() {
-                        //0.5초마다 실행
                         takePicture();
 
                         // 사진 + 위치 전송 메서드 추가
-                        if(button.isChecked())
+                        if(button.isChecked()) {
+                            getAddress();
                             createPost();
+                        }
                     }
                 };
 
@@ -172,14 +175,11 @@ public class MainActivity extends AppCompatActivity {
                     if(location != null){
                         latitude = location.getLatitude();   // 위도
                         longitude = location.getLongitude(); // 경도
+                        searchPoint = longitude+","+latitude;
 
-                        searchPoint = "위도 : " + latitude + "\n경도 : " + longitude;
-
-                        textView.setText(searchPoint);
+                        if(textView.getText() != null)
+                            textView.setText(currentLocation);
                     }
-
-                    // 일정 주기마다 사진 촬영
-
 
                     timer.schedule(timerTask,1000,3000);
                 }
@@ -192,6 +192,38 @@ public class MainActivity extends AppCompatActivity {
                 }
             }
         });
+    }
+
+    public Boolean getAddress() {
+        try {
+            String url = "https://api.vworld.kr/req/address?service=address&request=getAddress&format=json&type=PARCEL&key="
+                    +GEO_API_KEY + "&crs=" + epsg + "&point=" + searchPoint;
+
+            OkHttpClient client = new OkHttpClient();
+
+            Request.Builder builder = new Request.Builder().url(url).get();
+            Request req = builder.build();
+
+            okhttp3.Response response = client.newCall(req).execute();
+            if(response.isSuccessful()) {
+                String userString = response.body().string();
+                JSONObject jsonObject = new JSONObject(userString);
+
+                currentLocation = jsonObject
+                        .getJSONObject("response")
+                        .getJSONArray("result")
+                        .getJSONObject(0)
+                        .get("text")
+                        .toString();
+            }
+            else
+                System.out.println("Error Occurred!");
+
+            return true;
+        } catch (Exception e) {
+            System.out.println(e.getMessage());
+        }
+        return false;
     }
 
     public Image takePicture() {
@@ -288,7 +320,7 @@ public class MainActivity extends AppCompatActivity {
 
     private void createPost() {
         RequestBody title = RequestBody.create(MediaType.parse("text/plain"), "번째 위반 차량 발견");
-        RequestBody text = RequestBody.create(MediaType.parse("text/plain"), searchPoint);
+        RequestBody text = RequestBody.create(MediaType.parse("text/plain"), currentLocation);
 
         String filePath = getExternalFilesDir(null).getAbsolutePath() + File.separator + "my_image.jpg";
 
