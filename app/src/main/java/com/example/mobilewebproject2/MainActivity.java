@@ -287,7 +287,7 @@ public class MainActivity extends AppCompatActivity {
     }
 
     private void createPost() {
-        RequestBody title = RequestBody.create(MediaType.parse("text/plain"), "위반 차량 발견");
+        RequestBody title = RequestBody.create(MediaType.parse("text/plain"), "번째 위반 차량 발견");
         RequestBody text = RequestBody.create(MediaType.parse("text/plain"), searchPoint);
 
         String filePath = getExternalFilesDir(null).getAbsolutePath() + File.separator + "my_image.jpg";
