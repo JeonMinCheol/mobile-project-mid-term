@@ -135,8 +135,8 @@ public class MainActivity extends AppCompatActivity {
                 {
                     latitude = location.getLatitude();   // 위도
                     longitude = location.getLongitude(); // 경도
-                    searchPoint = latitude +"," + longitude;
-                    textView.setText("위도 : " + latitude + "\n경도 : " + longitude);
+                    searchPoint = "위도 : " + latitude + "\n경도 : " + longitude;
+                    textView.setText(searchPoint);
                 }
             }
         };
@@ -173,9 +173,9 @@ public class MainActivity extends AppCompatActivity {
                         latitude = location.getLatitude();   // 위도
                         longitude = location.getLongitude(); // 경도
 
-                        searchPoint = latitude +"," + longitude;
+                        searchPoint = "위도 : " + latitude + "\n경도 : " + longitude;
 
-                        textView.setText("위도 : " + latitude + "\n경도 : " + longitude);
+                        textView.setText(searchPoint);
                     }
 
                     // 일정 주기마다 사진 촬영
