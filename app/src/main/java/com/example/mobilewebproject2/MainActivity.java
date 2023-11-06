@@ -89,7 +89,7 @@ public class MainActivity extends AppCompatActivity {
         textView = findViewById(R.id.textView);
 
         Retrofit retrofit = new Retrofit.Builder()
-                .baseUrl("http://182.224.243.135:5000")
+                .baseUrl("http://172.21.94.197:5000")
                 .addConverterFactory(GsonConverterFactory.create())
                 .build();
 
@@ -128,26 +128,16 @@ public class MainActivity extends AppCompatActivity {
             }
         }
 
-
         final LocationListener gpsLocationListener = new LocationListener() {
             @Override
             public void onLocationChanged(@NonNull Location location) {
-                latitude = location.getLatitude();   // 위도
-                longitude = location.getLongitude(); // 경도
-                searchPoint = latitude +"," + longitude;
-
-                // geocoder
-//                StringBuilder sb = new StringBuilder("https://api.vworld.kr/req/address");
-//                sb.append("?service=address");
-//                sb.append("&request=getaddress");
-//                sb.append("&format=json");
-//                sb.append("&crs=" + epsg);
-//                sb.append("&key=" + GEO_API_KEY);
-//                sb.append("&type=" + SEARCH_TYPE);
-//                sb.append("&point=" + searchPoint);
-
-
-                textView.setText("location : " + "\n위도 : " + latitude + "\n경도 : " + longitude);
+                if(button.isChecked())
+                {
+                    latitude = location.getLatitude();   // 위도
+                    longitude = location.getLongitude(); // 경도
+                    searchPoint = latitude +"," + longitude;
+                    textView.setText("위도 : " + latitude + "\n경도 : " + longitude);
+                }
             }
         };
 
@@ -185,7 +175,7 @@ public class MainActivity extends AppCompatActivity {
 
                         searchPoint = latitude +"," + longitude;
 
-                        textView.setText("location : " + "\n위도 : " + latitude + "\n경도 : " + longitude);
+                        textView.setText("위도 : " + latitude + "\n경도 : " + longitude);
                     }
 
                     // 일정 주기마다 사진 촬영
@@ -297,8 +287,8 @@ public class MainActivity extends AppCompatActivity {
     }
 
     private void createPost() {
-        RequestBody title = RequestBody.create(MediaType.parse("text/plain"), searchPoint);
-        RequestBody text = RequestBody.create(MediaType.parse("text/plain"), "위반 차량 발견");
+        RequestBody title = RequestBody.create(MediaType.parse("text/plain"), "위반 차량 발견");
+        RequestBody text = RequestBody.create(MediaType.parse("text/plain"), searchPoint);
 
         String filePath = getExternalFilesDir(null).getAbsolutePath() + File.separator + "my_image.jpg";
 
