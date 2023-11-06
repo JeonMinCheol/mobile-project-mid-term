@@ -69,7 +69,7 @@ public class MainActivity extends AppCompatActivity {
     private final int CAMERA_REQUEST_CODE = 100;
     private final int GPS_REQUEST_CODE = 101;
     private final String epsg="epsg:4326";
-    private final String GEO_API_KEY = "434197BE-5034-31E3-B9BA-D4C187C1B393";
+    private final String GEO_API_KEY = "본인의_API_KEY_입력";
     private String searchPoint;
     private String currentLocation;
     private double latitude;
