@@ -50,6 +50,7 @@ dependencies {
     implementation ("androidx.camera:camera-view:${camerax_version}")
     implementation ("androidx.camera:camera-extensions:${camerax_version}")
     implementation("com.squareup.okhttp3:okhttp-bom:4.9.1")
+    implementation ("com.squareup.picasso:picasso:2.71828")
     implementation("com.squareup.okhttp3:okhttp")
     implementation("com.squareup.okhttp3:logging-interceptor")
     implementation ("com.squareup.retrofit2:retrofit:2.9.0")

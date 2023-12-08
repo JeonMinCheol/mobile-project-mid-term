@@ -1,7 +1,6 @@
 package com.example.mobilewebproject2;
 
 import androidx.annotation.NonNull;
-import androidx.annotation.OptIn;
 import androidx.appcompat.app.AppCompatActivity;
 import androidx.camera.core.AspectRatio;
 import androidx.camera.core.CameraSelector;
@@ -9,15 +8,14 @@ import androidx.camera.core.ExperimentalGetImage;
 import androidx.camera.core.ImageCapture;
 import androidx.camera.core.ImageProxy;
 import androidx.camera.core.Preview;
-import androidx.camera.core.internal.utils.ImageUtil;
 import androidx.camera.lifecycle.ProcessCameraProvider;
 import androidx.camera.view.PreviewView;
 import androidx.core.app.ActivityCompat;
 import androidx.core.content.ContextCompat;
 
 import android.Manifest;
-import android.annotation.SuppressLint;
 import android.content.Context;
+import android.content.Intent;
 import android.content.pm.PackageManager;
 import android.graphics.Bitmap;
 import android.graphics.BitmapFactory;
@@ -29,6 +27,8 @@ import android.os.Bundle;
 import android.util.Log;
 import android.view.Surface;
 import android.view.SurfaceView;
+import android.view.View;
+import android.widget.Button;
 import android.widget.CompoundButton;
 import android.widget.ImageView;
 import android.widget.TextView;
@@ -69,7 +69,7 @@ public class MainActivity extends AppCompatActivity {
     private final int CAMERA_REQUEST_CODE = 100;
     private final int GPS_REQUEST_CODE = 101;
     private final String epsg="epsg:4326";
-    private final String GEO_API_KEY = "본인의_API_KEY_입력";
+    private final String GEO_API_KEY = "434197BE-5034-31E3-B9BA-D4C187C1B393";
     private String searchPoint;
     private String currentLocation;
     private double latitude;
@@ -77,9 +77,11 @@ public class MainActivity extends AppCompatActivity {
     private ToggleButton button;
     private PreviewView previewView;
     private TextView textView;
+    private TextView statusTextView;
     private ProcessCameraProvider processCameraProvider;
     private ImageCapture imageCapture;
     private Post post;
+    private Button postButton;
 
     @Override
     protected void onCreate(Bundle savedInstanceState) {
@@ -89,6 +91,19 @@ public class MainActivity extends AppCompatActivity {
         button = findViewById(R.id.toggleButton);
         previewView = findViewById(R.id.previewView);
         textView = findViewById(R.id.textView);
+        statusTextView = findViewById(R.id.textView2);
+        postButton = findViewById(R.id.button);
+        statusTextView.setText("작동 중지됨.");
+
+        postButton.setOnClickListener(
+                new View.OnClickListener() {
+                    @Override
+                    public void onClick(View view) {
+                        Intent intent = new Intent(MainActivity.this, MainViewActivity.class);
+                        startActivity(intent);
+                    }
+                }
+        );
 
         Retrofit retrofit = new Retrofit.Builder()
                 .baseUrl("http://172.21.94.197:5000")
@@ -144,6 +159,9 @@ public class MainActivity extends AppCompatActivity {
         };
 
         Location location = lm.getLastKnownLocation(LocationManager.GPS_PROVIDER);
+        latitude = location.getLatitude();   // 위도
+        longitude = location.getLongitude(); // 경도
+        searchPoint = longitude+","+latitude;
 
         lm.requestLocationUpdates(LocationManager.GPS_PROVIDER,
                 1000,
@@ -158,17 +176,18 @@ public class MainActivity extends AppCompatActivity {
                 TimerTask timerTask = new TimerTask() {
                     @Override
                     public void run() {
-                        takePicture();
-
                         // 사진 + 위치 전송 메서드 추가
+
                         if(button.isChecked()) {
                             getAddress();
+                            takePicture();
                             createPost();
                         }
                     }
                 };
 
                 if(button.isChecked()){
+                    statusTextView.setText("탐지 실행 중...\uD83D\uDEA8");
                     bindPreview();
                     bindImageCapture();
 
@@ -176,17 +195,17 @@ public class MainActivity extends AppCompatActivity {
                         latitude = location.getLatitude();   // 위도
                         longitude = location.getLongitude(); // 경도
                         searchPoint = longitude+","+latitude;
-
-                        if(textView.getText() != null)
-                            textView.setText(currentLocation);
                     }
+
+                    textView.setText(currentLocation);
 
                     timer.schedule(timerTask,1000,3000);
                 }
                 else{
                     timerTask.cancel();
                     timer.cancel();
-                    textView.setText("중지 중..");
+                    statusTextView.setText("탐지 중지 됨.");
+                    textView.setText("");
 
                     onPause();
                 }
