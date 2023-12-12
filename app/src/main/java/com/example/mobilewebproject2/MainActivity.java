@@ -106,7 +106,7 @@ public class MainActivity extends AppCompatActivity {
         );
 
         Retrofit retrofit = new Retrofit.Builder()
-                .baseUrl("http://172.21.94.197:5000")
+                .baseUrl("http://182.224.243.135:5000")
                 .addConverterFactory(GsonConverterFactory.create())
                 .build();
 
@@ -173,18 +173,23 @@ public class MainActivity extends AppCompatActivity {
             @Override
             public void onCheckedChanged(CompoundButton buttonView, boolean isChecked) {
                 Timer timer = new Timer();
+
                 TimerTask timerTask = new TimerTask() {
                     @Override
                     public void run() {
                         // 사진 + 위치 전송 메서드 추가
-
                         if(button.isChecked()) {
-                            getAddress();
                             takePicture();
-                            createPost();
                         }
                     }
                 };
+
+                new Thread(new Runnable() {
+                    @Override
+                    public void run() {
+                        getAddress();
+                    }
+                }).start();
 
                 if(button.isChecked()){
                     statusTextView.setText("탐지 실행 중...\uD83D\uDEA8");
@@ -251,12 +256,9 @@ public class MainActivity extends AppCompatActivity {
             @ExperimentalGetImage
             public void onCaptureSuccess(@NonNull ImageProxy image) {
                 Image mediaImage = image.getImage();
-
                 if(mediaImage != null) {
-                    ByteBuffer buffer = mediaImage.getPlanes()[0].getBuffer();
-                    byte[] bytes = new byte[buffer.capacity()];
-                    buffer.get(bytes);
-                    Bitmap bitmap = BitmapFactory.decodeByteArray(bytes, 0, bytes.length, null);
+                    Bitmap bitmap = ImageUtil.mediaImageToBitmap(mediaImage);
+                    Bitmap rotatedBitmap = ImageUtil.rotateBitmap(bitmap, image.getImageInfo().getRotationDegrees());
 
                     String filePath = getExternalFilesDir(null).getAbsolutePath() + File.separator + "my_image.jpg";
                     File file = new File(filePath);
@@ -265,12 +267,16 @@ public class MainActivity extends AppCompatActivity {
                         FileOutputStream fos = new FileOutputStream(file);
 
                         // Bitmap을 JPEG 형식으로 파일에 저장
-                        bitmap.compress(Bitmap.CompressFormat.JPEG, 100, fos);
+                        rotatedBitmap.compress(Bitmap.CompressFormat.JPEG, 50, fos);
+                        Log.i("create", "onCaptureSuccess: " + rotatedBitmap.getByteCount());
 
                         fos.flush();
                         fos.close();
 
+                        Log.i("take picture", "onCaptureSuccess: capture success");
+
                         // 파일 저장 성공
+                        createPost();
                     } catch (IOException e) {
                         e.printStackTrace();
                         // 파일 저장 실패
@@ -337,7 +343,7 @@ public class MainActivity extends AppCompatActivity {
         }
     }
 
-    private void createPost() {
+    private void createPost() throws IOException {
         RequestBody title = RequestBody.create(MediaType.parse("text/plain"), "번째 위반 차량 발견");
         RequestBody text = RequestBody.create(MediaType.parse("text/plain"), currentLocation);
 
@@ -349,16 +355,20 @@ public class MainActivity extends AppCompatActivity {
 
         Call call = post.sendData(title, text, image);
 
+        Log.d("create post", String.valueOf(image.body().contentLength()));
+
         call.enqueue(new Callback<ReceiveDTO>() {
             @Override
             public void onResponse(Call<ReceiveDTO> call, Response<ReceiveDTO> response) {
+
                 if(!response.isSuccessful()) {
-                    Log.d("response error", String.valueOf(response.code()));
+                    Log.d("response error", response.message());
                 }
                 else {
                     ReceiveDTO receiveDTO = response.body();
 
-                    Log.d("response body", receiveDTO.result);
+                    Log.d("response body", String.valueOf(response.code()));
+
                 }
             }
 
